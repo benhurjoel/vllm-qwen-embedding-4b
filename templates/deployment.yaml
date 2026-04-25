@@ -134,8 +134,16 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: HOME
+              value: {{ .Values.vllm.home | quote }}
+            - name: XDG_CACHE_HOME
+              value: {{ .Values.vllm.xdgCacheHome | quote }}
             - name: HF_HOME
               value: {{ .Values.modelStorage.mountPath | quote }}
+            - name: TRANSFORMERS_CACHE
+              value: {{ .Values.vllm.transformersCache | quote }}
+            - name: TORCH_HOME
+              value: {{ .Values.vllm.torchHome | quote }}
             {{- if .Values.apiKeySecret.enabled }}
             - name: VLLM_API_KEY
               valueFrom:

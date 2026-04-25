@@ -107,6 +107,10 @@ vllm:
   maxModelLen: ""
   dtype: auto
   quantization: ""
+  home: /tmp/home
+  xdgCacheHome: /tmp/.cache
+  transformersCache: /tmp/.cache/huggingface/transformers
+  torchHome: /tmp/.cache/torch
   extraArgs: []
   extraEnv: []
   extraEnvs: []
