@@ -201,25 +201,40 @@ spec:
               protocol: TCP
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
-            httpGet:
-              path: /health
+            {{- if eq .Values.startupProbe.type "tcp" }}
+            tcpSocket:
               port: {{ .Values.startupProbe.port }}
+            {{- else }}
+            httpGet:
+              path: {{ .Values.startupProbe.path | quote }}
+              port: {{ .Values.startupProbe.port }}
+            {{- end }}
             failureThreshold: {{ .Values.startupProbe.failureThreshold }}
             periodSeconds: {{ .Values.startupProbe.periodSeconds }}
           {{- end }}
           {{- if .Values.readinessProbe.enabled }}
           readinessProbe:
-            httpGet:
-              path: /health
+            {{- if eq .Values.readinessProbe.type "tcp" }}
+            tcpSocket:
               port: {{ .Values.readinessProbe.port }}
+            {{- else }}
+            httpGet:
+              path: {{ .Values.readinessProbe.path | quote }}
+              port: {{ .Values.readinessProbe.port }}
+            {{- end }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
-            httpGet:
-              path: /health
+            {{- if eq .Values.livenessProbe.type "tcp" }}
+            tcpSocket:
               port: {{ .Values.livenessProbe.port }}
+            {{- else }}
+            httpGet:
+              path: {{ .Values.livenessProbe.path | quote }}
+              port: {{ .Values.livenessProbe.port }}
+            {{- end }}
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             failureThreshold: {{ .Values.livenessProbe.failureThreshold }}

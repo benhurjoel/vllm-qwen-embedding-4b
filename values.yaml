@@ -164,18 +164,26 @@ securityContext:
 
 startupProbe:
   enabled: true
+  # Use tcp when vLLM is protected by --api-key. HTTP probes cannot inject
+  # Authorization headers from Secrets.
+  type: tcp
+  path: /health
   port: 8000
   failureThreshold: 120
   periodSeconds: 10
 
 readinessProbe:
   enabled: true
+  type: tcp
+  path: /health
   port: 8000
   periodSeconds: 10
   failureThreshold: 6
 
 livenessProbe:
   enabled: true
+  type: tcp
+  path: /health
   port: 8000
   initialDelaySeconds: 60
   periodSeconds: 30
