@@ -31,6 +31,15 @@ hfTokenSecret:
   key: token
   token: ""
 
+apiKeySecret:
+  enabled: false
+  # If create is true, set the API key during install with:
+  # --set apiKeySecret.value=<api_key>
+  create: false
+  name: ""
+  key: api-key
+  value: ""
+
 proxy:
   enabled: false
   httpProxy: ""

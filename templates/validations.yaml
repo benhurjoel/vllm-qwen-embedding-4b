@@ -13,3 +13,9 @@
 {{- if and .Values.nodeAffinity.enabled (not .Values.nodeAffinity.nodeSelectorTerms) -}}
 {{- fail "nodeAffinity.nodeSelectorTerms is required when nodeAffinity.enabled=true" -}}
 {{- end -}}
+{{- if and .Values.apiKeySecret.enabled (not .Values.apiKeySecret.create) (not .Values.apiKeySecret.name) -}}
+{{- fail "apiKeySecret.enabled=true requires apiKeySecret.name or apiKeySecret.create=true" -}}
+{{- end -}}
+{{- if and .Values.apiKeySecret.enabled .Values.apiKeySecret.create (not .Values.apiKeySecret.value) -}}
+{{- fail "apiKeySecret.value is required when apiKeySecret.enabled=true and apiKeySecret.create=true" -}}
+{{- end -}}

@@ -101,6 +101,13 @@ spec:
           env:
             - name: HF_HOME
               value: {{ .Values.modelStorage.mountPath | quote }}
+            {{- if .Values.apiKeySecret.enabled }}
+            - name: VLLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vllm-hf.apiKeySecretName" . }}
+                  key: {{ .Values.apiKeySecret.key }}
+            {{- end }}
             {{- if or .Values.model.requiresToken .Values.hfTokenSecret.create .Values.hfTokenSecret.name }}
             - name: HF_TOKEN
               valueFrom:
@@ -131,6 +138,10 @@ spec:
             - {{ .Values.vllm.gpuMemoryUtilization | quote }}
             - --dtype
             - {{ .Values.vllm.dtype | quote }}
+            {{- if .Values.apiKeySecret.enabled }}
+            - --api-key
+            - $(VLLM_API_KEY)
+            {{- end }}
             {{- if .Values.vllm.task }}
             - --task
             - {{ .Values.vllm.task | quote }}

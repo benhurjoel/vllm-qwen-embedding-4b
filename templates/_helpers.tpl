@@ -74,6 +74,14 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 
+{{- define "vllm-hf.apiKeySecretName" -}}
+{{- if .Values.apiKeySecret.name -}}
+{{- .Values.apiKeySecret.name -}}
+{{- else -}}
+{{- printf "%s-api-key" (include "vllm-hf.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "vllm-hf.proxyEnv" -}}
 {{- if .Values.proxy.enabled }}
 - name: HTTP_PROXY
