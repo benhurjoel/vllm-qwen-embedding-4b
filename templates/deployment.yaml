@@ -1,0 +1,225 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vllm-hf.fullname" . }}
+  labels:
+    {{- include "vllm-hf.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vllm-hf.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vllm-hf.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "vllm-hf.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.downloader.enabled }}
+      initContainers:
+        - name: download-model
+          image: "{{ .Values.downloader.image.repository }}:{{ .Values.downloader.image.tag }}"
+          imagePullPolicy: {{ .Values.downloader.image.pullPolicy }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.modelStorage.mountPath | quote }}
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: {{ ternary "1" "0" .Values.downloader.enableHfTransfer | quote }}
+            - name: PIP_CACHE_DIR
+              value: {{ .Values.downloader.pipCacheDir | quote }}
+            {{- if or .Values.model.requiresToken .Values.hfTokenSecret.create .Values.hfTokenSecret.name }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vllm-hf.hfTokenSecretName" . }}
+                  key: {{ .Values.hfTokenSecret.key }}
+            {{- end }}
+            {{- include "vllm-hf.proxyEnv" . | nindent 12 }}
+            {{- include "vllm-hf.trustedCAEnv" . | nindent 12 }}
+            {{- with .Values.downloader.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.downloader.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          command:
+            - /bin/bash
+            - -ec
+          args:
+            - |
+              python -m pip install --user --upgrade "huggingface_hub[hf_transfer]=={{ .Values.downloader.huggingFaceHubVersion }}"
+              export PATH="${HOME}/.local/bin:${PATH}"
+              mkdir -p {{ include "vllm-hf.modelPath" . | quote }}
+              if [ -f {{ printf "%s/.complete" (include "vllm-hf.modelPath" .) | quote }} ]; then
+                echo "Model already downloaded at {{ include "vllm-hf.modelPath" . }}"
+                exit 0
+              fi
+              huggingface-cli download {{ .Values.model.repoId | quote }} \
+                {{- if .Values.model.revision }}
+                --revision {{ .Values.model.revision | quote }} \
+                {{- end }}
+                {{- range .Values.model.allowPatterns }}
+                --include {{ . | quote }} \
+                {{- end }}
+                {{- range .Values.model.ignorePatterns }}
+                --exclude {{ . | quote }} \
+                {{- end }}
+                --local-dir {{ include "vllm-hf.modelPath" . | quote }} \
+                --local-dir-use-symlinks False
+              date -u +"%Y-%m-%dT%H:%M:%SZ" > {{ printf "%s/.complete" (include "vllm-hf.modelPath" .) | quote }}
+          volumeMounts:
+            - name: model-storage
+              mountPath: {{ .Values.modelStorage.mountPath | quote }}
+            {{- if .Values.trustedCA.enabled }}
+            - name: trusted-ca
+              mountPath: {{ .Values.trustedCA.mountPath | quote }}
+              subPath: {{ .Values.trustedCA.key | quote }}
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.downloader.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.downloader.securityContext | nindent 12 }}
+      {{- end }}
+      containers:
+        - name: vllm
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: HF_HOME
+              value: {{ .Values.modelStorage.mountPath | quote }}
+            {{- if or .Values.model.requiresToken .Values.hfTokenSecret.create .Values.hfTokenSecret.name }}
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vllm-hf.hfTokenSecretName" . }}
+                  key: {{ .Values.hfTokenSecret.key }}
+            {{- end }}
+            {{- include "vllm-hf.proxyEnv" . | nindent 12 }}
+            {{- include "vllm-hf.trustedCAEnv" . | nindent 12 }}
+            {{- with .Values.vllm.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+            {{- with .Values.vllm.extraEnvs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          args:
+            - --host
+            - {{ .Values.vllm.host | quote }}
+            - --port
+            - {{ .Values.vllm.port | quote }}
+            - --model
+            - {{ include "vllm-hf.modelPath" . | quote }}
+            - --served-model-name
+            - {{ default .Values.model.repoId .Values.vllm.servedModelName | quote }}
+            - --tensor-parallel-size
+            - {{ .Values.vllm.tensorParallelSize | quote }}
+            - --gpu-memory-utilization
+            - {{ .Values.vllm.gpuMemoryUtilization | quote }}
+            - --dtype
+            - {{ .Values.vllm.dtype | quote }}
+            {{- if .Values.vllm.task }}
+            - --task
+            - {{ .Values.vllm.task | quote }}
+            {{- end }}
+            {{- if .Values.vllm.maxModelLen }}
+            - --max-model-len
+            - {{ .Values.vllm.maxModelLen | quote }}
+            {{- end }}
+            {{- if .Values.vllm.quantization }}
+            - --quantization
+            - {{ .Values.vllm.quantization | quote }}
+            {{- end }}
+            {{- if .Values.model.trustRemoteCode }}
+            - --trust-remote-code
+            {{- end }}
+            {{- range .Values.vllm.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.vllm.port }}
+              protocol: TCP
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.startupProbe.port }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.readinessProbe.port }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.livenessProbe.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          volumeMounts:
+            - name: model-storage
+              mountPath: {{ .Values.modelStorage.mountPath | quote }}
+            {{- if .Values.trustedCA.enabled }}
+            - name: trusted-ca
+              mountPath: {{ .Values.trustedCA.mountPath | quote }}
+              subPath: {{ .Values.trustedCA.key | quote }}
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: {{ include "vllm-hf.claimName" . }}
+        {{- if .Values.trustedCA.enabled }}
+        - name: trusted-ca
+          configMap:
+            name: {{ required "trustedCA.configMapName is required when trustedCA.enabled=true" .Values.trustedCA.configMapName }}
+            items:
+              - key: {{ .Values.trustedCA.key }}
+                path: {{ .Values.trustedCA.key }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeAffinity.enabled }}
+      affinity:
+        nodeAffinity:
+          {{ .Values.nodeAffinity.type }}:
+            nodeSelectorTerms:
+              {{- toYaml .Values.nodeAffinity.nodeSelectorTerms | nindent 14 }}
+      {{- else }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
