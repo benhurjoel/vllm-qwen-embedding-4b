@@ -179,6 +179,10 @@ spec:
             - {{ .Values.vllm.tensorParallelSize | quote }}
             - --gpu-memory-utilization
             - {{ .Values.vllm.gpuMemoryUtilization | quote }}
+            {{- if .Values.vllm.runner }}
+            - --runner
+            - {{ .Values.vllm.runner | quote }}
+            {{- end }}
             - --dtype
             - {{ .Values.vllm.dtype | quote }}
             {{- if .Values.apiKeySecret.enabled }}

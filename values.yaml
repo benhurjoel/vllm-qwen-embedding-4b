@@ -102,6 +102,8 @@ vllm:
   task: ""
   host: 0.0.0.0
   port: 8000
+  # Use "pooling" for embedding/reranker models when required by vLLM.
+  runner: ""
   tensorParallelSize: 1
   gpuMemoryUtilization: 0.90
   maxModelLen: ""
