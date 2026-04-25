@@ -68,15 +68,17 @@ modelStorage:
 downloader:
   enabled: true
   image:
-    repository: registry.access.redhat.com/ubi9/python-311
-    tag: latest
+    repository: vllm/vllm-openai
+    tag: "v0.8.5"
     pullPolicy: IfNotPresent
   home: /tmp/home
   venvPath: /tmp/hf-venv
   pipCacheDir: /tmp/pip-cache
   xdgCacheHome: /tmp/.cache
+  installDependencies: false
   huggingFaceHubVersion: "0.30.2"
-  enableHfTransfer: true
+  enableHfTransfer: false
+  disableXet: true
   extraEnv: []
   extraEnvs: []
   resources:
