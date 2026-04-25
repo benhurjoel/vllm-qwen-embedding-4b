@@ -69,9 +69,16 @@ spec:
           args:
             - |
               mkdir -p "${HOME}" "${PIP_CACHE_DIR}" "${XDG_CACHE_HOME}"
-              PYTHON_BIN="python"
+              if command -v python3 >/dev/null 2>&1; then
+                PYTHON_BIN="python3"
+              elif command -v python >/dev/null 2>&1; then
+                PYTHON_BIN="python"
+              else
+                echo "Neither python3 nor python was found in the downloader image." >&2
+                exit 1
+              fi
               {{- if .Values.downloader.installDependencies }}
-              python -m venv "${HF_DOWNLOADER_VENV}"
+              "${PYTHON_BIN}" -m venv "${HF_DOWNLOADER_VENV}"
               "${HF_DOWNLOADER_VENV}/bin/python" -m pip install --upgrade pip
               "${HF_DOWNLOADER_VENV}/bin/python" -m pip install --upgrade "huggingface_hub[hf_transfer]=={{ .Values.downloader.huggingFaceHubVersion }}"
               PYTHON_BIN="${HF_DOWNLOADER_VENV}/bin/python"
