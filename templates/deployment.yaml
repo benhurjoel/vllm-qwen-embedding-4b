@@ -34,6 +34,12 @@ spec:
           image: "{{ .Values.downloader.image.repository }}:{{ .Values.downloader.image.tag }}"
           imagePullPolicy: {{ .Values.downloader.image.pullPolicy }}
           env:
+            - name: HOME
+              value: {{ .Values.downloader.home | quote }}
+            - name: XDG_CACHE_HOME
+              value: {{ .Values.downloader.xdgCacheHome | quote }}
+            - name: HF_DOWNLOADER_VENV
+              value: {{ .Values.downloader.venvPath | quote }}
             - name: HF_HOME
               value: {{ .Values.modelStorage.mountPath | quote }}
             - name: HF_HUB_ENABLE_HF_TRANSFER
@@ -60,8 +66,11 @@ spec:
             - -ec
           args:
             - |
-              python -m pip install --user --upgrade "huggingface_hub[hf_transfer]=={{ .Values.downloader.huggingFaceHubVersion }}"
-              export PATH="${HOME}/.local/bin:${PATH}"
+              mkdir -p "${HOME}" "${PIP_CACHE_DIR}" "${XDG_CACHE_HOME}"
+              python -m venv "${HF_DOWNLOADER_VENV}"
+              "${HF_DOWNLOADER_VENV}/bin/python" -m pip install --upgrade pip
+              "${HF_DOWNLOADER_VENV}/bin/python" -m pip install --upgrade "huggingface_hub[hf_transfer]=={{ .Values.downloader.huggingFaceHubVersion }}"
+              export PATH="${HF_DOWNLOADER_VENV}/bin:${PATH}"
               mkdir -p {{ include "vllm-hf.modelPath" . | quote }}
               if [ -f {{ printf "%s/.complete" (include "vllm-hf.modelPath" .) | quote }} ]; then
                 echo "Model already downloaded at {{ include "vllm-hf.modelPath" . }}"

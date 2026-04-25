@@ -71,7 +71,10 @@ downloader:
     repository: registry.access.redhat.com/ubi9/python-311
     tag: latest
     pullPolicy: IfNotPresent
+  home: /tmp/home
+  venvPath: /tmp/hf-venv
   pipCacheDir: /tmp/pip-cache
+  xdgCacheHome: /tmp/.cache
   huggingFaceHubVersion: "0.30.2"
   enableHfTransfer: true
   extraEnv: []
